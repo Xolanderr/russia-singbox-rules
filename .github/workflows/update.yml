@@ -63,25 +63,18 @@ jobs:
         run: |
           TAG="${{ steps.upstream.outputs.tag }}"
 
+          files=()
+
+          while IFS= read -r -d '' file; do
+            filename="$(basename "$file")"
+
+            echo "Adding $filename"
+
+            files+=("$file#$filename")
+          done < <(find extracted -type f -print0)
+
           gh release create "$TAG" \
             --repo "${{ github.repository }}" \
             --title "$TAG" \
-            --notes "Generated from runetfreedom/russia-v2ray-rules-dat release $TAG."
-
-      - name: Upload extracted files
-        if: steps.check.outputs.exists == 'false'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          find extracted -type f -print0 |
-            while IFS= read -r -d '' file; do
-              filename="$(basename "$file")"
-
-              echo "Uploading $filename"
-
-              gh release upload \
-                "${{ steps.upstream.outputs.tag }}" \
-                "$file#$filename" \
-                --repo "${{ github.repository }}" \
-                --clobber
-            done
+            --notes "Generated from runetfreedom/russia-v2ray-rules-dat release $TAG." \
+            "${files[@]}"
