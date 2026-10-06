@@ -79,12 +79,6 @@ jobs:
             fi
           done
 
-      - name: Show extracted files
-        if: steps.check.outputs.exists == 'false'
-        run: |
-          echo "Files to upload:"
-          find extracted -type f -print | sort
-
       - name: Create release
         if: steps.check.outputs.exists == 'false'
         env:
@@ -100,5 +94,4 @@ jobs:
             --repo "${{ github.repository }}" \
             --title "$TAG" \
             --notes "Mirrored from runetfreedom/russia-v2ray-rules-dat release $TAG." \
-            --verify-tag \
             "${files[@]}"
