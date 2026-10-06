@@ -77,8 +77,11 @@ jobs:
             while IFS= read -r -d '' file; do
               filename="$(basename "$file")"
 
+              echo "Uploading $filename"
+
               gh release upload \
                 "${{ steps.upstream.outputs.tag }}" \
                 "$file#$filename" \
-                --repo "${{ github.repository }}"
+                --repo "${{ github.repository }}" \
+                --clobber
             done
