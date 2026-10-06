@@ -1,0 +1,84 @@
+name: Update rules
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 4,10,16,22 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get latest upstream release
+        id: upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(gh release view \
+            --repo runetfreedom/russia-v2ray-rules-dat \
+            --json tagName \
+            --jq '.tagName')
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Check if release already exists
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.upstream.outputs.tag }}" \
+            --repo "${{ github.repository }}" \
+            >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download sing-box.zip
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p archive
+
+          gh release download "${{ steps.upstream.outputs.tag }}" \
+            --repo runetfreedom/russia-v2ray-rules-dat \
+            --pattern 'sing-box.zip' \
+            --dir archive
+
+      - name: Extract
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          mkdir extracted
+          unzip -q archive/sing-box.zip -d extracted
+
+      - name: Create release
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.upstream.outputs.tag }}"
+
+          gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --title "$TAG" \
+            --notes "Generated from runetfreedom/russia-v2ray-rules-dat release $TAG."
+
+      - name: Upload extracted files
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          find extracted -type f -print0 |
+            while IFS= read -r -d '' file; do
+              filename="$(basename "$file")"
+
+              gh release upload \
+                "${{ steps.upstream.outputs.tag }}" \
+                "$file#$filename" \
+                --repo "${{ github.repository }}"
+            done
