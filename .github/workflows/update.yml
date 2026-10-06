@@ -86,12 +86,99 @@ jobs:
         run: |
           TAG="${{ steps.upstream.outputs.tag }}"
 
-          mapfile -d '' files < <(
-            find extracted -type f -print0
+          FILES=(
+            geoip-cloudflare.srs
+            geoip-cloudfront.srs
+            geoip-ddos-guard.srs
+            geoip-google.srs
+            geoip-netflix.srs
+            geoip-ru.srs
+            geoip-ru-blocked.srs
+            geoip-ru-blocked-community.srs
+            geoip-ru-whitelist.srs
+            geoip-telegram.srs
+            geoip-yandex.srs
+            geoip-facebook.srs
+            geoip-twitter.srs
+
+            geosite-youtube.srs
+            geosite-category-forums-ru.srs
+            geosite-figma.srs
+            geosite-steam.srs
+            geosite-category-public-tracker.srs
+            geosite-codeforces.srs
+            geosite-duckduckgo.srs
+            geosite-icloud.srs
+            geosite-reagroup.srs
+            geosite-ru-blocked-all.srs
+            geosite-rutracker.srs
+            geosite-telegram.srs
+            geosite-vk.srs
+            geosite-win-update.srs
+            geosite-android.srs
+            geosite-category-anticensorship.srs
+            geosite-category-antivirus.srs
+            geosite-f-droid.srs
+            geosite-firebase.srs
+            geosite-yandex.srs
+            geosite-2ch.srs
+            geosite-4pda.srs
+            geosite-archlinux.srs
+            geosite-category-android-app-download.srs
+            geosite-dzen.srs
+            geosite-google-play.srs
+            geosite-huggingface.srs
+            geosite-kaspersky.srs
+            geosite-letsencrypt.srs
+            geosite-termux.srs
+            geosite-antifilter-download.srs
+            geosite-category-ai-ru.srs
+            geosite-category-password-management.srs
+            geosite-category-ru.srs
+            geosite-category-speedtest.srs
+            geosite-category-web-archive.srs
+            geosite-firefox.srs
+            geosite-instagram.srs
+            geosite-matrix.srs
+            geosite-microsoft.srs
+            geosite-reddit.srs
+            geosite-tex.srs
+            geosite-torproject.srs
+            geosite-v2ray.srs
+            geosite-github.srs
+            geosite-openai.srs
+            geosite-ru-blocked.srs
+            geosite-google.srs
+            geosite-google-deepmind.srs
+            geosite-google-gemini.srs
+            geosite-ru-available-only-inside.srs
+            geosite-xiaomi.srs
+            geosite-category-bank-ru.srs
+            geosite-docker.srs
           )
+
+          UPLOAD=()
+
+          for file in "${FILES[@]}"; do
+            if [ -f "extracted/rule-set-geoip/$file" ]; then
+              UPLOAD+=("extracted/rule-set-geoip/$file")
+            elif [ -f "extracted/rule-set-geosite/$file" ]; then
+              UPLOAD+=("extracted/rule-set-geosite/$file")
+            else
+              echo "Skipping missing file: $file"
+            fi
+          done
+
+          if [ "${#UPLOAD[@]}" -eq 0 ]; then
+            echo "No requested files found."
+            exit 0
+          fi
+
+          echo "Files to upload:"
+          printf '  %s\n' "${UPLOAD[@]}"
 
           gh release create "$TAG" \
             --repo "${{ github.repository }}" \
             --title "$TAG" \
             --notes "Mirrored from runetfreedom/russia-v2ray-rules-dat release $TAG." \
-            "${files[@]}"
+            "${UPLOAD[@]}"
