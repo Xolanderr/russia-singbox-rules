@@ -1,9 +1,9 @@
-name: Update rules
+name: Update sing-box rules
 
 on:
-  workflow_dispatch:
   schedule:
     - cron: "30 4,10,16,22 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -23,6 +23,7 @@ jobs:
             --json tagName \
             --jq '.tagName')
 
+          echo "Latest upstream release: $TAG"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Check if release already exists
@@ -30,11 +31,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "${{ steps.upstream.outputs.tag }}" \
-            --repo "${{ github.repository }}" \
-            >/dev/null 2>&1; then
+          TAG="${{ steps.upstream.outputs.tag }}"
+
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release $TAG already exists."
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
+            echo "Release $TAG does not exist."
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -43,18 +46,44 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p archive
+          mkdir -p download
 
           gh release download "${{ steps.upstream.outputs.tag }}" \
             --repo runetfreedom/russia-v2ray-rules-dat \
-            --pattern 'sing-box.zip' \
-            --dir archive
+            --pattern "sing-box.zip" \
+            --dir download
 
-      - name: Extract
+      - name: Extract rules
         if: steps.check.outputs.exists == 'false'
         run: |
-          mkdir extracted
-          unzip -q archive/sing-box.zip -d extracted
+          mkdir -p extracted
+
+          unzip -q download/sing-box.zip -d extracted
+
+      - name: Normalize filenames
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          find extracted -type f -print0 |
+          while IFS= read -r -d '' file; do
+            dir="$(dirname "$file")"
+            name="$(basename "$file")"
+
+            safe_name="$(printf '%s' "$name" | sed 's/[^a-zA-Z0-9._-]/-/g')"
+
+            if [ "$name" != "$safe_name" ]; then
+              echo "Renaming:"
+              echo "  $name"
+              echo "  -> $safe_name"
+
+              mv "$file" "$dir/$safe_name"
+            fi
+          done
+
+      - name: Show extracted files
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          echo "Files to upload:"
+          find extracted -type f -print | sort
 
       - name: Create release
         if: steps.check.outputs.exists == 'false'
@@ -63,18 +92,13 @@ jobs:
         run: |
           TAG="${{ steps.upstream.outputs.tag }}"
 
-          files=()
-
-          while IFS= read -r -d '' file; do
-            filename="$(basename "$file")"
-
-            echo "Adding $filename"
-
-            files+=("$file#$filename")
-          done < <(find extracted -type f -print0)
+          mapfile -d '' files < <(
+            find extracted -type f -print0
+          )
 
           gh release create "$TAG" \
             --repo "${{ github.repository }}" \
             --title "$TAG" \
-            --notes "Generated from runetfreedom/russia-v2ray-rules-dat release $TAG." \
+            --notes "Mirrored from runetfreedom/russia-v2ray-rules-dat release $TAG." \
+            --verify-tag \
             "${files[@]}"
