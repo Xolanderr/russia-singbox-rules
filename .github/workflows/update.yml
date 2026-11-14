@@ -155,6 +155,7 @@ jobs:
             geosite-xiaomi.srs
             geosite-category-bank-ru.srs
             geosite-docker.srs
+            geosite-discord.srs
           )
 
           UPLOAD=()
